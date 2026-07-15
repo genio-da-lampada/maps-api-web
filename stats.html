@@ -64,7 +64,12 @@ function card(n, label) {
     '<div class="l">' + label + '</div></div>';
 }
 
-fetch(STATS).then(function (r) { return r.json(); }).then(function (d) {
+fetch(STATS, { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (d) {
+  if (!d || !d.base) {
+    document.getElementById('status').textContent =
+      'resposta inesperada: ' + JSON.stringify(d).slice(0, 140);
+    return;
+  }
   document.getElementById('status').style.display = 'none';
   document.getElementById('main').style.display = 'block';
   document.getElementById('quando').textContent =
