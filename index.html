@@ -128,6 +128,15 @@ function popup(r) {
       '" target="_blank">Instagram</a>');
   }
   links.push('<a href="' + r.maps_url + '" target="_blank">Google Maps →</a>');
+  links.push('<a href="https://m.uber.com/ul/?action=setPickup&pickup=my_location' +
+    '&dropoff[latitude]=' + r.location.lat +
+    '&dropoff[longitude]=' + r.location.lng +
+    '&dropoff[nickname]=' + encodeURIComponent(r.name) +
+    '" target="_blank">🚗 Uber</a>');
+  links.push('<a href="taxis99://call?dest_lat=' + r.location.lat +
+    '&dest_lng=' + r.location.lng +
+    '&dest_name=' + encodeURIComponent(r.name) +
+    '" title="abre o app do 99">🚕 99</a>');
   return '<div class="popup"><h3>' + r.name + '</h3>' +
     '<div class="meta">' + r.place_type + ' · ' + r.distance_m + 'm · ' +
     abertoTxt + '</div>' + tags + fmtEvent(r.next_event) +
