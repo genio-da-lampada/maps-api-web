@@ -59,6 +59,10 @@ https://quxzjsnjgpisepslcpnc.supabase.co/functions/v1/search?lat=&lt;lat&gt;&amp
   <h2>Top buscas (7 dias)</h2>
   <table id="buscas"><thead><tr><th>busca</th><th>vezes</th></tr></thead>
     <tbody></tbody></table>
+  <h2>Lugares por cidade</h2>
+  <table id="cidades"><thead><tr>
+    <th>cidade</th><th>lugares</th><th></th>
+  </tr></thead><tbody></tbody></table>
   <h2>Regiões na fila de expansão</h2>
   <table id="regioes"><thead><tr>
     <th>grade (lat,lng)</th><th>pedidos</th><th>status</th>
@@ -122,6 +126,15 @@ fetch(STATS, { cache: 'no-store' }).then(function (r) { return r.json(); }).then
       .map(function (t) {
         return '<tr><td>' + t.q + '</td><td>' + t.vezes + '</td></tr>';
       }).join('') || '<tr><td colspan="2" class="muted">sem buscas com texto ainda</td></tr>';
+
+  var cmax = Math.max.apply(null, d.base.cidades.map(function (c) {
+    return c.lugares; }).concat([1]));
+  document.querySelector('#cidades tbody').innerHTML =
+    d.base.cidades.map(function (c) {
+      return '<tr><td>' + c.cidade + '</td><td>' + c.lugares +
+        '</td><td style="width:40%"><div class="bar" style="width:' +
+        Math.round(100 * c.lugares / cmax) + '%"></div></td></tr>';
+    }).join('');
 
   document.querySelector('#regioes tbody').innerHTML =
     (d.base.regioes.length ? d.base.regioes : [])
