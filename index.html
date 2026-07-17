@@ -183,9 +183,13 @@ function pinEl(r) {
 function fmtEvent(ev) {
   if (!ev) return '';
   var d = new Date(ev.starts_at);
-  var quando = d.toLocaleString('pt-BR', { weekday: 'short', day: '2-digit',
-    month: '2-digit', hour: '2-digit', minute: '2-digit',
-    timeZone: 'America/Sao_Paulo' });
+  // horário honesto (D18b): hora não confirmada não aparece — só o dia
+  var quando = ev.start_time_known === false
+    ? d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit',
+        month: '2-digit', timeZone: 'America/Sao_Paulo' }) + ' · horário no local'
+    : d.toLocaleString('pt-BR', { weekday: 'short', day: '2-digit',
+        month: '2-digit', hour: '2-digit', minute: '2-digit',
+        timeZone: 'America/Sao_Paulo' });
   var html = '<div class="event">🎵 <b>' + ev.title + '</b><br>' + quando;
   if (ev.price_min != null) html += ' · a partir de R$ ' + ev.price_min;
   if (ev.ticket_url) html += ' · <a href="' + ev.ticket_url +
