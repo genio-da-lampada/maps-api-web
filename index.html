@@ -152,6 +152,22 @@ var sheetEl = document.getElementById('sheet');
 var EMOJI = { bar: '🍺', restaurante: '🍽️', casa_de_show: '🎤',
   teatro: '🎭', praca: '🌳', event_venue: '🎪', other: '📍' };
 
+// pulso só para MÚSICA de verdade (caso "rodízio de caldos" 😂):
+// gênero precisa estar nesta lista — LLM inventa gênero de comida
+var GENEROS_MUSICA = ['samba', 'pagode', 'rock', 'sertanejo', 'funk',
+  'forró', 'forro', 'mpb', 'jazz', 'blues', 'rap', 'trap', 'pop',
+  'axé', 'axe', 'eletrônica', 'eletronica', 'reggae', 'gospel',
+  'karaoke', 'karaokê', 'choro', 'piseiro', 'arrocha', 'brega',
+  'pagonejo', 'metal', 'indie', 'soul', 'r&b', 'hip hop', 'trio',
+  'roda de samba', 'música ao vivo', 'musica ao vivo', 'show'];
+function temMusica(ev) {
+  if (!ev || !ev.genres) return false;
+  return ev.genres.some(function (g) {
+    g = String(g).toLowerCase();
+    return GENEROS_MUSICA.some(function (m) { return g.indexOf(m) >= 0; });
+  });
+}
+
 function spDate(daysAhead) {
   var d = new Date(Date.now() - 3 * 3600000 + (daysAhead || 0) * 86400000);
   return d.toISOString().slice(0, 10);
@@ -244,14 +260,16 @@ function pinEl(r) {
   var el = document.createElement('div');
   el.className = 'pin ' + (r.open_now === true ? 'aberto-sim'
     : r.open_now === false ? 'aberto-nao' : '');
-  if (rolandoAgora(r)) el.className += ' rolando';
-  else if (aindaHoje(r)) el.className += ' embreve';
+  if (temMusica(r.next_event)) {
+    if (rolandoAgora(r)) el.className += ' rolando';
+    else if (aindaHoje(r)) el.className += ' embreve';
+  }
   el.textContent = EMOJI[r.place_type] || EMOJI.other;
   el.title = r.name;
   if (r.next_event) {
     var b = document.createElement('span');
     b.className = 'badge';
-    b.textContent = '🎵';
+    b.textContent = temMusica(r.next_event) ? '🎵' : '📅';
     el.appendChild(b);
   }
   return el;
