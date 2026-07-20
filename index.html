@@ -43,6 +43,17 @@
     rgba(22,33,62,.82); color: #9fb3c8; border-radius: 999px;
     padding: 4px 12px; font-size: 11.5px; backdrop-filter: blur(6px); }
   #statuswrap { text-align: center; }
+  /* autocomplete da busca */
+  #sugestoes { position: relative; max-width: 560px; margin: 0 auto; }
+  #sug-caixa { position: absolute; top: 4px; left: 0; right: 0;
+    background: #fff; border-radius: 14px; overflow: hidden;
+    box-shadow: 0 8px 24px rgba(10,10,30,.35); z-index: 7;
+    display: none; }
+  .sug { padding: 11px 14px; font-size: 13.5px; color: #1a1a2e;
+    cursor: pointer; border-bottom: 1px solid #eef2f7; }
+  .sug:last-child { border-bottom: none; }
+  .sug:hover { background: #f6f8fb; }
+  .sug .cid { color: #9fb3c8; font-size: 11.5px; margin-left: 4px; }
   #stats-link { position: absolute; top: calc(12px + env(safe-area-inset-top));
     right: 10px; z-index: 4; font-size: 15px; text-decoration: none;
     background: rgba(26,26,46,.82); border-radius: 999px; padding: 6px 9px; }
@@ -161,6 +172,7 @@
     <button id="loc" class="pillbtn" title="minha localização">📍</button>
     <button id="go" class="pillbtn" title="buscar">🔍</button>
   </div>
+  <div id="sugestoes"><div id="sug-caixa"></div></div>
   <div id="chips">
     <span class="chip" data-modo="">qualquer dia</span>
     <span class="chip" data-modo="agora">🔥 agora</span>
@@ -765,6 +777,7 @@ function alargarFiltros() {
   });
 }
 function buscarDigitada() {
+  esconderSugestoes();
   if (document.getElementById('q').value.trim()) alargarFiltros();
   buscar();
 }
@@ -776,6 +789,18 @@ document.getElementById('q').addEventListener('keydown', function (e) {
 // não achou no viewport → procura o LUGAR pelo nome no país inteiro;
 // similaridade forte = voa até lá (ficha abre ao chegar); fraca =
 // honestidade ("pode não estar mapeado ainda")
+function voarPara(hit) {
+  esconderSugestoes();
+  statusEl.textContent = '✈️ ' + hit.name +
+    (hit.city ? ' — ' + hit.city : '') + '. Te levando…';
+  pendingFichaId = hit.id;
+  document.getElementById('q').value = '';
+  fecharFicha();
+  alargarFiltros();
+  map.setCenter({ lat: hit.location.lat, lng: hit.location.lng });
+  map.setZoom(16);
+  buscar();   // explícito: voo não depende do idle pra re-buscar
+}
 function procurarLonge(texto) {
   statusEl.textContent = 'procurando "' + texto + '" no mapa todo…';
   var c = map.getCenter();
@@ -785,14 +810,7 @@ function procurarLonge(texto) {
     .then(function (d) {
       var hit = (d.results || [])[0];
       if (hit && hit.similarity >= 0.55) {
-        statusEl.textContent = '✈️ achei: ' + hit.name +
-          (hit.city ? ' — ' + hit.city : '') + '. Te levando…';
-        pendingFichaId = hit.id;
-        document.getElementById('q').value = '';
-        fecharFicha();
-        map.setCenter({ lat: hit.location.lat, lng: hit.location.lng });
-        map.setZoom(16);
-        buscar();   // explícito: voo não depende do idle pra re-buscar
+        voarPara(hit);
       } else {
         statusEl.textContent = 'não achei "' + texto + '" — pode ainda ' +
           'não estar no mapa 🕳️ (anotei a lacuna pro robô)';
@@ -800,6 +818,44 @@ function procurarLonge(texto) {
     })
     .catch(function () {});
 }
+
+// ===== autocomplete (pedido: Bruno): sugere lugares enquanto digita =====
+var sugCaixa = document.getElementById('sug-caixa');
+var sugTimer = null;
+function esconderSugestoes() { sugCaixa.style.display = 'none'; }
+document.getElementById('q').addEventListener('input', function () {
+  var texto = this.value.trim();
+  clearTimeout(sugTimer);
+  if (texto.length < 3) { esconderSugestoes(); return; }
+  sugTimer = setTimeout(function () {
+    var c = map.getCenter();
+    fetch(API + '?lookup=' + encodeURIComponent(texto) +
+          '&lat=' + c.lat() + '&lng=' + c.lng() + '&limit=5')
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (document.getElementById('q').value.trim() !== texto) return;
+        var hits = d.results || [];
+        if (!hits.length) { esconderSugestoes(); return; }
+        sugCaixa.innerHTML = hits.map(function (h, i) {
+          return '<div class="sug" data-i="' + i + '">' +
+            (EMOJI[h.place_type] || '📍') + ' ' + h.name +
+            '<span class="cid">' + (h.city || '') + '</span></div>';
+        }).join('');
+        sugCaixa.style.display = 'block';
+        document.querySelectorAll('.sug').forEach(function (el) {
+          // pointerdown vence o blur do teclado no celular
+          el.onpointerdown = function (ev) {
+            ev.preventDefault();
+            voarPara(hits[+el.dataset.i]);
+          };
+        });
+      })
+      .catch(function () {});
+  }, 280);
+});
+document.getElementById('q').addEventListener('blur', function () {
+  setTimeout(esconderSugestoes, 250);
+});
 </script>
 <script async
   src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAize4UIpEPs2H9iDtvYXVMMOCRV0mXCYQ&callback=initMap&language=pt-BR&region=BR&libraries=marker&v=weekly&loading=async">
