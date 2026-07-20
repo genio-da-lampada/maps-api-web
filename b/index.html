@@ -265,6 +265,10 @@ function initMap() {
     abrirDeepLink(deepLinkId);
   } else {
     localizar(false);
+    // mapkit não re-emite region-change-end da região inicial (o set
+    // acontece antes do listener) — sem geolocalização ninguém mais
+    // dispararia a 1ª busca
+    buscar();
   }
 }
 
