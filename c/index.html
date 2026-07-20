@@ -234,16 +234,18 @@ function initMap() {
   meEl.title = 'você';
   meMarker = new maplibregl.Marker({ element: meEl, anchor: 'bottom' })
     .setLngLat([center.lng, center.lat]).addTo(map);
-  // webview/pane às vezes mede o container como 0 no boot e o canvas
-  // cai no fallback 400x300 sem o ResizeObserver acudir — re-mede até
-  // canvas e container casarem (no-op quando já está certo)
-  function garanteCanvas(tenta) {
-    if (Math.abs(map.getCanvas().clientWidth -
-                 map.getContainer().clientWidth) > 2) map.resize();
-    if (tenta < 6) setTimeout(function () { garanteCanvas(tenta + 1); }, 700);
+  // webview oculta mede container 0 no boot → canvas cai no fallback
+  // 400x300 e o ResizeObserver nem sempre acode ao aparecer. Vigia
+  // barato: só re-mede quando o container é real (>0) e diverge.
+  function garanteCanvas() {
+    var w = map.getContainer().clientWidth;
+    if (w && Math.abs(map.getCanvas().clientWidth - w) > 2) map.resize();
   }
-  map.once('load', function () { map.resize(); });
-  garanteCanvas(0);
+  map.once('load', garanteCanvas);
+  setInterval(garanteCanvas, 900);
+  document.addEventListener('visibilitychange', garanteCanvas);
+  window.addEventListener('pageshow', garanteCanvas);
+  window.addEventListener('focus', garanteCanvas);
   map.on('click', fecharFicha);
   map.on('moveend', function () {
     var c = map.getCenter();
