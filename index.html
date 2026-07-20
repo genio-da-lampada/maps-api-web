@@ -791,7 +791,8 @@ function procurarLonge(texto) {
         document.getElementById('q').value = '';
         fecharFicha();
         map.setCenter({ lat: hit.location.lat, lng: hit.location.lng });
-        map.setZoom(16);   // o idle re-busca (todos+qualquer dia) e abre a ficha
+        map.setZoom(16);
+        buscar();   // explícito: voo não depende do idle pra re-buscar
       } else {
         statusEl.textContent = 'não achei "' + texto + '" — pode ainda ' +
           'não estar no mapa 🕳️ (anotei a lacuna pro robô)';
