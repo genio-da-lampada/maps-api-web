@@ -35,6 +35,9 @@
     user-select: none; backdrop-filter: blur(6px); }
   .chip.on { background: #e94560; border-color: #e94560; color: #fff;
     font-weight: 700; }
+  /* modo sossego (tri-state do chip música): quieto de propósito */
+  .chip.sem { background: #16213e; border-color: #9fb3c8; color: #dfe7f0;
+    font-weight: 700; }
   select.chip { appearance: none; -webkit-appearance: none; }
   #status { display: inline-block; margin: 8px auto 0; background:
     rgba(22,33,62,.82); color: #9fb3c8; border-radius: 999px;
@@ -568,8 +571,11 @@ function buscar() {
   if (document.getElementById('evento').classList.contains('on')) {
     p.set('has_event', 'true');
   }
-  if (document.getElementById('musica').classList.contains('on')) {
+  var musicaEl = document.getElementById('musica');
+  if (musicaEl.classList.contains('on')) {
     p.set('tags', 'musica_ao_vivo');
+  } else if (musicaEl.classList.contains('sem')) {
+    p.set('exclude_tags', 'musica_ao_vivo');
   }
   fetch(API + '?' + p).then(function (r) { return r.json(); })
     .then(function (d) {
@@ -587,8 +593,11 @@ function buscar() {
       });
       montarTrilho(d.results || []);
       if (listaEl.classList.contains('up')) montarLista();
-      statusEl.textContent = d.count + ' na tela · 🟢 pulsando = ' +
-        'rolando agora · 🟡 = mais tarde hoje';
+      statusEl.textContent = document.getElementById('musica')
+          .classList.contains('sem')
+        ? d.count + ' na tela · 🔇 só lugares sem música ao vivo'
+        : d.count + ' na tela · 🟢 pulsando = rolando agora · ' +
+          '🟡 = mais tarde hoje';
     })
     .catch(function (e) { statusEl.textContent = 'erro: ' + e.message; });
 }
@@ -609,6 +618,23 @@ document.querySelectorAll('.chip.toggle').forEach(function (c) {
     buscar();
   };
 });
+// tri-state do chip música (pedido da galera: "onde NÃO tem música"):
+// 🎵 só com música → tanto faz (apagado) → 🔇 só SEM música → volta.
+// Sobrescreve o onclick genérico de .chip.toggle de propósito.
+document.getElementById('musica').onclick = function () {
+  if (this.classList.contains('on')) {
+    this.classList.remove('on');
+    this.textContent = '🎵 música';
+  } else if (!this.classList.contains('sem')) {
+    this.classList.add('sem');
+    this.textContent = '🔇 sem música';
+  } else {
+    this.classList.remove('sem');
+    this.classList.add('on');
+    this.textContent = '🎵 música';
+  }
+  buscar();
+};
 document.getElementById('cidade').onchange = function () {
   if (!this.value) return;
   var xy = this.value.split(',');
