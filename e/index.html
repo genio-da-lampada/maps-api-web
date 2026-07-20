@@ -94,7 +94,8 @@ if (!id) {
           '">🎟️ garantir ingresso</a>');
       }
       botoes.push('<a class="' + (ev.ticket_url ? 'secundario' : 'primario') +
-        '" href="/">🗺️ ver no mapa vivo</a>');
+        '" href="/?e=' + encodeURIComponent(id) +
+        '">🗺️ ver no mapa vivo</a>');
       var linha = [];
       if (p.maps_url) {
         linha.push('<a class="secundario" href="' + esc(p.maps_url) +
