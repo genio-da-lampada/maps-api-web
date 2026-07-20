@@ -86,6 +86,11 @@
   #sheet .fechar { position: absolute; top: 12px; right: 12px; border: none;
     background: #eef2f7; border-radius: 50%; width: 30px; height: 30px;
     font-size: 14px; cursor: pointer; color: #5f5e5a; }
+  #sheet .fav { position: absolute; top: 12px; right: 50px; border: none;
+    background: #eef2f7; border-radius: 999px; height: 30px;
+    padding: 0 12px; font-size: 12.5px; font-weight: 700; cursor: pointer;
+    color: #1a1a2e; }
+  #sheet .fav.salvo { background: #fff3cd; }
   #sheet h3 { margin: 0 34px 4px 0; font-size: 17px; color: #1a1a2e; }
   #sheet .meta { color: #5f6b7a; font-size: 12.5px; margin-bottom: 8px; }
   #sheet .tag { display: inline-block; background: #eef; color: #336;
@@ -118,23 +123,33 @@
   .cardev.ativo { outline: 2px solid #e94560; }
 
   /* ===== onda C: modo lista "hoje" ===== */
+  #modoFavs { position: fixed; right: 12px;
+    bottom: calc(142px + env(safe-area-inset-bottom)); z-index: 10;
+    background: rgba(26,26,46,.88); color: #fff; border: 1px solid
+    rgba(255,255,255,.25); border-radius: 999px; padding: 10px 13px;
+    font-size: 14px; font-weight: 700; backdrop-filter: blur(6px);
+    box-shadow: 0 4px 14px rgba(10,10,30,.35); cursor: pointer; }
   #modoLista { position: fixed; right: 12px;
     bottom: calc(88px + env(safe-area-inset-bottom)); z-index: 10;
     background: #e94560; color: #fff; border: none; border-radius: 999px;
     padding: 10px 16px; font-size: 13px; font-weight: 700;
     box-shadow: 0 4px 14px rgba(10,10,30,.35); cursor: pointer; }
-  #lista { position: fixed; inset: 0; z-index: 8; background: #1a1a2e;
+  #lista, #favs { position: fixed; inset: 0; z-index: 8; background: #1a1a2e;
     transform: translateY(105%); transition: transform .28s ease;
     overflow-y: auto;
     padding: calc(16px + env(safe-area-inset-top)) 14px
              calc(90px + env(safe-area-inset-bottom)); }
-  #lista.up { transform: translateY(0); }
-  #lista h2 { color: #fff; font-size: 17px; margin: 0 0 12px; }
-  #lista h2 span { color: #e94560; }
+  #lista.up, #favs.up { transform: translateY(0); }
+  #lista h2, #favs h2 { color: #fff; font-size: 17px; margin: 0 0 12px; }
+  #lista h2 span, #favs h2 span { color: #e94560; }
   .rowev { background: #232346; border-radius: 12px; padding: 10px 12px;
     margin-bottom: 8px; cursor: pointer; }
   .rowev .tit { color: #fff; font-size: 13.5px; font-weight: 700; }
   .rowev .sub { color: #9fb3c8; font-size: 11.5px; margin-top: 2px; }
+  #favs .rowev { position: relative; padding-right: 44px; }
+  #favs .tira { position: absolute; top: 50%; right: 10px; border: none;
+    transform: translateY(-50%); background: #1a1a2e; color: #9fb3c8;
+    border-radius: 50%; width: 26px; height: 26px; cursor: pointer; }
 </style>
 </head>
 <body>
@@ -158,6 +173,7 @@
       <option value="">🏙️ cidades</option>
       <option value="-23.5505,-46.6333">São Paulo</option>
       <option value="-19.9227,-43.9451">Belo Horizonte</option>
+      <option value="-22.9134,-43.1809">Rio de Janeiro</option>
       <option value="-10.1846,-48.3336">Palmas</option>
       <option value="-16.6869,-49.2648">Goiânia</option>
       <option value="-21.7226,-44.9850">S. Tomé das Letras</option>
@@ -171,15 +187,21 @@
 <div id="sheet">
   <div class="alca"></div>
   <button class="fechar" onclick="fecharFicha()">✕</button>
+  <button class="fav" id="btn-fav">☆ salvar</button>
   <div id="sheet-conteudo"></div>
 </div>
 
 <div id="trilho" class="vazio"></div>
 
+<button id="modoFavs" title="meus lugares">⭐</button>
 <button id="modoLista">☰ hoje</button>
 <div id="lista">
   <h2>rolando na tela <span id="lista-n"></span></h2>
   <div id="lista-rows"></div>
+</div>
+<div id="favs">
+  <h2>⭐ meus lugares <span id="favs-n"></span></h2>
+  <div id="favs-rows"></div>
 </div>
 
 <script>
@@ -416,6 +438,10 @@ function abrirFicha(r) {
     '<div class="meta">' + r.place_type + ' · ' + r.distance_m + ' m · ' +
     abertoTxt + '</div>' + tags + fmtEvent(r.next_event) +
     '<div class="links">' + links.join('') + '</div>';
+  var favBtn = document.getElementById('btn-fav');
+  favBtn.className = 'fav' + (ehFav(r.id) ? ' salvo' : '');
+  favBtn.textContent = ehFav(r.id) ? '⭐ salvo' : '☆ salvar';
+  favBtn.onclick = function () { toggleFav(r, favBtn); };
   sheetEl.classList.add('up');
 }
 
@@ -487,6 +513,78 @@ function marcarAtivo(i) {
   });
 }
 
+// ===== favoritos v1 (itens 2-3 da galera, sem login): no aparelho =====
+// snapshot leve em localStorage; notificação/perfil vêm depois — este é
+// o degrau que os justifica
+function lerFavs() {
+  try { return JSON.parse(localStorage.getItem('mdh_favs') || '[]'); }
+  catch (e) { return []; }
+}
+function gravarFavs(f) {
+  localStorage.setItem('mdh_favs', JSON.stringify(f));
+}
+function ehFav(id) {
+  return lerFavs().some(function (x) { return x.id === id; });
+}
+function toggleFav(r, btn) {
+  var f = lerFavs();
+  var i = f.findIndex(function (x) { return x.id === r.id; });
+  if (i >= 0) f.splice(i, 1);
+  else {
+    f.push({ id: r.id, name: r.name, lat: r.location.lat,
+      lng: r.location.lng, place_type: r.place_type,
+      address: (r.address || '').split(/ - \d|, \d/)[0] });
+  }
+  gravarFavs(f);
+  btn.className = 'fav' + (i >= 0 ? '' : ' salvo');
+  btn.textContent = i >= 0 ? '☆ salvar' : '⭐ salvo';
+}
+
+var favsEl = document.getElementById('favs');
+var modoFavsBtn = document.getElementById('modoFavs');
+
+function montarFavs() {
+  var f = lerFavs();
+  document.getElementById('favs-n').textContent =
+    f.length ? '· ' + f.length + (f.length === 1 ? ' lugar' : ' lugares') : '';
+  document.getElementById('favs-rows').innerHTML =
+    f.map(function (p, i) {
+      return '<div class="rowev" data-fi="' + i + '">' +
+        '<div class="tit">' + (EMOJI[p.place_type] || '📍') + ' ' + p.name +
+        '</div><div class="sub">' + (p.address || 'toca pra ir no mapa') +
+        '</div><button class="tira" data-ti="' + i +
+        '" title="tirar da lista">✕</button></div>';
+    }).join('') ||
+    '<div class="sub" style="color:#9fb3c8">nenhum lugar salvo ainda — ' +
+    'abre a ficha de um lugar e toca em ☆ salvar</div>';
+  document.querySelectorAll('#favs .rowev').forEach(function (row) {
+    row.onclick = function () {
+      var p = lerFavs()[+row.dataset.fi];
+      if (!p) return;
+      fecharFavs();
+      map.setCenter({ lat: p.lat, lng: p.lng });
+      map.setZoom(16);   // o idle re-busca e o pin dele aparece
+    };
+  });
+  document.querySelectorAll('#favs .tira').forEach(function (b) {
+    b.onclick = function (ev) {
+      ev.stopPropagation();
+      var f2 = lerFavs();
+      f2.splice(+b.dataset.ti, 1);
+      gravarFavs(f2);
+      montarFavs();
+    };
+  });
+}
+function fecharFavs() { favsEl.classList.remove('up'); }
+modoFavsBtn.onclick = function () {
+  if (favsEl.classList.contains('up')) { fecharFavs(); return; }
+  fecharFicha();
+  fecharLista();
+  montarFavs();
+  favsEl.classList.add('up');
+};
+
 // ===== onda C: modo lista =====
 var listaEl = document.getElementById('lista');
 var modoListaBtn = document.getElementById('modoLista');
@@ -526,6 +624,7 @@ modoListaBtn.onclick = function () {
     fecharLista();
   } else {
     fecharFicha();
+    fecharFavs();
     montarLista();
     listaEl.classList.add('up');
     modoListaBtn.textContent = '🗺️ mapa';
