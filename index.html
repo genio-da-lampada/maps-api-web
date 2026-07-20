@@ -167,8 +167,10 @@
     <span class="chip on" data-modo="today">hoje</span>
     <span class="chip" data-modo="amanha">amanhã</span>
     <span class="chip" data-modo="weekend">fds</span>
-    <span class="chip toggle on" id="musica">🎵 música</span>
-    <span class="chip toggle on" id="evento">✨ evento</span>
+    <span class="chip oque on" data-oque="shows">🎵 shows</span>
+    <span class="chip oque" data-oque="eventos">✨ eventos</span>
+    <span class="chip oque" data-oque="todos">🍺 todos</span>
+    <span class="chip oque sossego" data-oque="sossego">🔇 sossego</span>
     <select class="chip" id="cidade" title="ir para cidade">
       <option value="">🏙️ cidades</option>
       <option value="-23.5505,-46.6333">São Paulo</option>
@@ -214,6 +216,7 @@ fetch(STATS, { method: 'POST', headers: { 'Content-Type': 'application/json' },
 var map, meMarker;
 var markers = [];
 var modo = 'today';   // o produto abre respondendo "o que tem HOJE?"
+var oque = 'shows';   // seletor único de conteúdo: o padrão É o show
 var lastBusca = { lat: null, lng: null, zoom: null };
 var statusEl = document.getElementById('status');
 var sheetEl = document.getElementById('sheet');
@@ -667,13 +670,13 @@ function buscar() {
   else if (modo === 'today') p.set('when', 'today');
   else if (modo === 'amanha') p.set('when', spDate(1));
   else if (modo === 'weekend') p.set('when', 'weekend');
-  if (document.getElementById('evento').classList.contains('on')) {
+  if (oque === 'shows') {
+    // evento DE MÚSICA na janela — mesma régua do pulso (GENEROS_MUSICA)
     p.set('has_event', 'true');
-  }
-  var musicaEl = document.getElementById('musica');
-  if (musicaEl.classList.contains('on')) {
-    p.set('tags', 'musica_ao_vivo');
-  } else if (musicaEl.classList.contains('sem')) {
+    p.set('event_genres', GENEROS_MUSICA.join(','));
+  } else if (oque === 'eventos') {
+    p.set('has_event', 'true');
+  } else if (oque === 'sossego') {
     p.set('exclude_tags', 'musica_ao_vivo');
   }
   fetch(API + '?' + p).then(function (r) { return r.json(); })
@@ -692,8 +695,7 @@ function buscar() {
       });
       montarTrilho(d.results || []);
       if (listaEl.classList.contains('up')) montarLista();
-      statusEl.textContent = document.getElementById('musica')
-          .classList.contains('sem')
+      statusEl.textContent = oque === 'sossego'
         ? d.count + ' na tela · 🔇 só lugares sem música ao vivo'
         : d.count + ' na tela · 🟢 pulsando = rolando agora · ' +
           '🟡 = mais tarde hoje';
@@ -711,29 +713,18 @@ document.querySelectorAll('.chip[data-modo]').forEach(function (c) {
     buscar();
   };
 });
-document.querySelectorAll('.chip.toggle').forEach(function (c) {
+// seletor único de conteúdo (voto do Bruno no mockup): um ativo por
+// vez, zero combinatória — sossego acende no estilo quieto de propósito
+document.querySelectorAll('.chip.oque').forEach(function (c) {
   c.onclick = function () {
-    c.classList.toggle('on');
+    document.querySelectorAll('.chip.oque').forEach(function (x) {
+      x.classList.remove('on', 'sem');
+    });
+    c.classList.add(c.dataset.oque === 'sossego' ? 'sem' : 'on');
+    oque = c.dataset.oque;
     buscar();
   };
 });
-// tri-state do chip música (pedido da galera: "onde NÃO tem música"):
-// 🎵 só com música → tanto faz (apagado) → 🔇 só SEM música → volta.
-// Sobrescreve o onclick genérico de .chip.toggle de propósito.
-document.getElementById('musica').onclick = function () {
-  if (this.classList.contains('on')) {
-    this.classList.remove('on');
-    this.textContent = '🎵 música';
-  } else if (!this.classList.contains('sem')) {
-    this.classList.add('sem');
-    this.textContent = '🔇 sem música';
-  } else {
-    this.classList.remove('sem');
-    this.classList.add('on');
-    this.textContent = '🎵 música';
-  }
-  buscar();
-};
 document.getElementById('cidade').onchange = function () {
   if (!this.value) return;
   var xy = this.value.split(',');
