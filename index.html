@@ -113,6 +113,25 @@
   .cardev .sub { font-size: 11.5px; color: #5f6b7a; margin-top: 2px;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .cardev.ativo { outline: 2px solid #e94560; }
+
+  /* ===== onda C: modo lista "hoje" ===== */
+  #modoLista { position: fixed; right: 12px;
+    bottom: calc(88px + env(safe-area-inset-bottom)); z-index: 10;
+    background: #e94560; color: #fff; border: none; border-radius: 999px;
+    padding: 10px 16px; font-size: 13px; font-weight: 700;
+    box-shadow: 0 4px 14px rgba(10,10,30,.35); cursor: pointer; }
+  #lista { position: fixed; inset: 0; z-index: 8; background: #1a1a2e;
+    transform: translateY(105%); transition: transform .28s ease;
+    overflow-y: auto;
+    padding: calc(16px + env(safe-area-inset-top)) 14px
+             calc(90px + env(safe-area-inset-bottom)); }
+  #lista.up { transform: translateY(0); }
+  #lista h2 { color: #fff; font-size: 17px; margin: 0 0 12px; }
+  #lista h2 span { color: #e94560; }
+  .rowev { background: #232346; border-radius: 12px; padding: 10px 12px;
+    margin-bottom: 8px; cursor: pointer; }
+  .rowev .tit { color: #fff; font-size: 13.5px; font-weight: 700; }
+  .rowev .sub { color: #9fb3c8; font-size: 11.5px; margin-top: 2px; }
 </style>
 </head>
 <body>
@@ -130,7 +149,7 @@
     <span class="chip on" data-modo="today">hoje</span>
     <span class="chip" data-modo="amanha">amanhã</span>
     <span class="chip" data-modo="weekend">fds</span>
-    <span class="chip toggle" id="musica">🎵 música</span>
+    <span class="chip toggle on" id="musica">🎵 música</span>
     <span class="chip toggle on" id="evento">✨ evento</span>
     <select class="chip" id="cidade" title="ir para cidade">
       <option value="">🏙️ cidades</option>
@@ -153,6 +172,12 @@
 </div>
 
 <div id="trilho" class="vazio"></div>
+
+<button id="modoLista">☰ hoje</button>
+<div id="lista">
+  <h2>rolando na tela <span id="lista-n"></span></h2>
+  <div id="lista-rows"></div>
+</div>
 
 <script>
 var center = { lat: -23.5505, lng: -46.6333 };
@@ -403,6 +428,51 @@ function marcarAtivo(i) {
   });
 }
 
+// ===== onda C: modo lista =====
+var listaEl = document.getElementById('lista');
+var modoListaBtn = document.getElementById('modoLista');
+
+function montarLista() {
+  document.getElementById('lista-n').textContent =
+    '· ' + trilhoItens.length + (trilhoItens.length === 1 ? ' rolê' : ' rolês');
+  document.getElementById('lista-rows').innerHTML =
+    trilhoItens.map(function (r, i) {
+      var ev = r.next_event;
+      var d = new Date(ev.starts_at);
+      var hora = ev.start_time_known === false ? 'horário no local'
+        : d.toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit',
+            timeZone: 'America/Sao_Paulo' });
+      return '<div class="rowev" data-i="' + i + '">' +
+        '<div class="tit">' + (temMusica(ev) ? '🎵 ' : '📅 ') + ev.title +
+        '</div><div class="sub">' + (EMOJI[r.place_type] || '📍') + ' ' +
+        r.name + ' · ' + hora + ' · ' + r.distance_m + ' m</div></div>';
+    }).join('') ||
+    '<div class="sub" style="color:#9fb3c8">nada na tela — arraste o ' +
+    'mapa ou afrouxe os filtros</div>';
+  document.querySelectorAll('.rowev').forEach(function (row) {
+    row.onclick = function () {
+      var i = +row.dataset.i;
+      fecharLista();
+      marcarAtivo(i);
+      focarLugar(trilhoItens[i], true);
+    };
+  });
+}
+function fecharLista() {
+  listaEl.classList.remove('up');
+  modoListaBtn.textContent = '☰ hoje';
+}
+modoListaBtn.onclick = function () {
+  if (listaEl.classList.contains('up')) {
+    fecharLista();
+  } else {
+    fecharFicha();
+    montarLista();
+    listaEl.classList.add('up');
+    modoListaBtn.textContent = '🗺️ mapa';
+  }
+};
+
 // deslizou o trilho → card do centro assume e o mapa voa junto
 trilhoEl.addEventListener('scroll', function () {
   clearTimeout(trilhoTimer);
@@ -460,6 +530,7 @@ function buscar() {
         markers.push(m);
       });
       montarTrilho(d.results || []);
+      if (listaEl.classList.contains('up')) montarLista();
       statusEl.textContent = d.count + ' na tela · 🟢 pulsando = ' +
         'rolando agora · 🟡 = mais tarde hoje';
     })
