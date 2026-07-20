@@ -1,0 +1,627 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>música de hoje [C · MapLibre] — o que tá rolando perto de você</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%;
+    font-family: -apple-system, system-ui, sans-serif; }
+  #map { position: absolute; inset: 0; }
+
+  /* ===== camada flutuante (layout A — Noite) ===== */
+  #topo { position: absolute; top: 0; left: 0; right: 0; z-index: 5;
+    padding: calc(10px + env(safe-area-inset-top)) 10px 0;
+    pointer-events: none; }
+  #topo > * { pointer-events: auto; }
+  #pill { display: flex; align-items: center; gap: 6px; background: #fff;
+    border-radius: 999px; padding: 6px 6px 6px 16px; max-width: 560px;
+    margin: 0 auto; box-shadow: 0 4px 16px rgba(10,10,30,.28); }
+  #q { flex: 1; min-width: 0; border: none; outline: none; font-size: 15px;
+    background: transparent; color: #1a1a2e; }
+  #q::placeholder { color: #9aa5b1; }
+  .pillbtn { border: none; border-radius: 999px; width: 38px; height: 38px;
+    font-size: 17px; cursor: pointer; flex-shrink: 0; display: flex;
+    align-items: center; justify-content: center; }
+  #loc { background: #eef2f7; }
+  #go { background: #e94560; color: #fff; }
+  #chips { display: flex; gap: 6px; margin: 8px auto 0; max-width: 560px;
+    overflow-x: auto; scrollbar-width: none; padding-bottom: 4px; }
+  #chips::-webkit-scrollbar { display: none; }
+  .chip { flex-shrink: 0; border: 1px solid rgba(255,255,255,.25);
+    background: rgba(26,26,46,.82); color: #cfd8e3; border-radius: 999px;
+    padding: 6px 13px; font-size: 12.5px; cursor: pointer;
+    user-select: none; backdrop-filter: blur(6px); }
+  .chip.on { background: #e94560; border-color: #e94560; color: #fff;
+    font-weight: 700; }
+  select.chip { appearance: none; -webkit-appearance: none; }
+  #status { display: inline-block; margin: 8px auto 0; background:
+    rgba(22,33,62,.82); color: #9fb3c8; border-radius: 999px;
+    padding: 4px 12px; font-size: 11.5px; backdrop-filter: blur(6px); }
+  #statuswrap { text-align: center; }
+  #stats-link { position: absolute; top: calc(12px + env(safe-area-inset-top));
+    right: 10px; z-index: 4; font-size: 15px; text-decoration: none;
+    background: rgba(26,26,46,.82); border-radius: 999px; padding: 6px 9px; }
+
+  /* ===== pins tininos ===== */
+  .pin { position: relative; width: 34px; height: 34px; border-radius: 50%;
+    background: #fff; display: flex; align-items: center;
+    justify-content: center; font-size: 17px; cursor: pointer;
+    border: 3px solid #2b6cb0; box-shadow: 0 2px 6px rgba(0,0,0,.35);
+    transition: transform .12s; }
+  .pin:hover { transform: scale(1.18); z-index: 5; }
+  .pin.aberto-sim { border-color: #0a9d43; }
+  .pin.aberto-nao { border-color: #9aa5b1; filter: saturate(.55); }
+  .pin .badge { position: absolute; top: -7px; right: -7px; font-size: 12px;
+    background: #e94560; border-radius: 50%; width: 17px; height: 17px;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.4); }
+  .pin.rolando::after { content: ''; position: absolute; inset: -9px;
+    border-radius: 50%; border: 3px solid #0a9d43; opacity: .85;
+    animation: pulse 1.4s ease-out infinite; pointer-events: none; }
+  .pin.embreve::after { content: ''; position: absolute; inset: -8px;
+    border-radius: 50%; border: 2px solid #f0a821; opacity: .55;
+    animation: pulse 2.6s ease-out infinite; pointer-events: none; }
+  @keyframes pulse {
+    0%   { transform: scale(.75); opacity: .8; }
+    100% { transform: scale(1.25); opacity: 0; }
+  }
+  .me { width: 18px; height: 18px; border-radius: 50%; background: #2b6cb0;
+    border: 3px solid #fff; box-shadow: 0 0 6px rgba(0,0,0,.5); }
+
+  /* ===== bottom sheet ===== */
+  #sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 9;
+    max-width: 560px; margin: 0 auto; background: #fff;
+    border-radius: 18px 18px 0 0; box-shadow: 0 -6px 24px rgba(10,10,30,.35);
+    transform: translateY(110%); transition: transform .28s ease;
+    padding: 8px 18px calc(16px + env(safe-area-inset-bottom));
+    max-height: 62vh; overflow-y: auto; }
+  #sheet.up { transform: translateY(0); }
+  #sheet .alca { width: 40px; height: 4px; border-radius: 2px;
+    background: #d7dbe2; margin: 2px auto 10px; }
+  #sheet .fechar { position: absolute; top: 12px; right: 12px; border: none;
+    background: #eef2f7; border-radius: 50%; width: 30px; height: 30px;
+    font-size: 14px; cursor: pointer; color: #5f5e5a; }
+  #sheet h3 { margin: 0 34px 4px 0; font-size: 17px; color: #1a1a2e; }
+  #sheet .meta { color: #5f6b7a; font-size: 12.5px; margin-bottom: 8px; }
+  #sheet .tag { display: inline-block; background: #eef; color: #336;
+    border-radius: 10px; padding: 2px 9px; font-size: 11px;
+    margin: 0 4px 4px 0; }
+  #sheet .event { background: #fff7e6; border-radius: 10px;
+    padding: 8px 10px; font-size: 13px; margin: 8px 0; color: #4a3b1e; }
+  #sheet .links { display: flex; gap: 14px; flex-wrap: wrap;
+    margin-top: 10px; }
+  #sheet .links a { color: #e94560; font-weight: 600; font-size: 13.5px;
+    text-decoration: none; }
+  .aberto { color: #0a7d33; font-weight: 700; }
+  .fechado { color: #a33; font-weight: 700; }
+
+  /* ===== onda B: trilho de eventos (carrossel) ===== */
+  #trilho { position: fixed; left: 0; right: 0;
+    bottom: calc(10px + env(safe-area-inset-bottom)); z-index: 6;
+    display: flex; gap: 10px; overflow-x: auto;
+    scroll-snap-type: x mandatory; padding: 6px 14px;
+    scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  #trilho::-webkit-scrollbar { display: none; }
+  #trilho.vazio { display: none; }
+  .cardev { scroll-snap-align: center; flex: 0 0 248px; background: #fff;
+    border-radius: 14px; padding: 10px 12px;
+    box-shadow: 0 4px 14px rgba(10,10,30,.3); cursor: pointer; }
+  .cardev .tit { font-size: 13px; font-weight: 700; color: #1a1a2e;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cardev .sub { font-size: 11.5px; color: #5f6b7a; margin-top: 2px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cardev.ativo { outline: 2px solid #e94560; }
+
+  /* ===== onda C: modo lista "hoje" ===== */
+  #modoLista { position: fixed; right: 12px;
+    bottom: calc(88px + env(safe-area-inset-bottom)); z-index: 10;
+    background: #e94560; color: #fff; border: none; border-radius: 999px;
+    padding: 10px 16px; font-size: 13px; font-weight: 700;
+    box-shadow: 0 4px 14px rgba(10,10,30,.35); cursor: pointer; }
+  #lista { position: fixed; inset: 0; z-index: 8; background: #1a1a2e;
+    transform: translateY(105%); transition: transform .28s ease;
+    overflow-y: auto;
+    padding: calc(16px + env(safe-area-inset-top)) 14px
+             calc(90px + env(safe-area-inset-bottom)); }
+  #lista.up { transform: translateY(0); }
+  #lista h2 { color: #fff; font-size: 17px; margin: 0 0 12px; }
+  #lista h2 span { color: #e94560; }
+  .rowev { background: #232346; border-radius: 12px; padding: 10px 12px;
+    margin-bottom: 8px; cursor: pointer; }
+  .rowev .tit { color: #fff; font-size: 13.5px; font-weight: 700; }
+  .rowev .sub { color: #9fb3c8; font-size: 11.5px; margin-top: 2px; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<div id="topo">
+  <div id="pill">
+    <input id="q" type="text" placeholder="samba, espetinho, rock…">
+    <button id="loc" class="pillbtn" title="minha localização">📍</button>
+    <button id="go" class="pillbtn" title="buscar">🔍</button>
+  </div>
+  <div id="chips">
+    <span class="chip" data-modo="">qualquer dia</span>
+    <span class="chip" data-modo="agora">🔥 agora</span>
+    <span class="chip on" data-modo="today">hoje</span>
+    <span class="chip" data-modo="amanha">amanhã</span>
+    <span class="chip" data-modo="weekend">fds</span>
+    <span class="chip toggle on" id="musica">🎵 música</span>
+    <span class="chip toggle on" id="evento">✨ evento</span>
+    <select class="chip" id="cidade" title="ir para cidade">
+      <option value="">🏙️ cidades</option>
+      <option value="-23.5505,-46.6333">São Paulo</option>
+      <option value="-19.9227,-43.9451">Belo Horizonte</option>
+      <option value="-10.1846,-48.3336">Palmas</option>
+      <option value="-16.6869,-49.2648">Goiânia</option>
+      <option value="-21.7226,-44.9850">S. Tomé das Letras</option>
+    </select>
+  </div>
+  <div id="statuswrap"><span id="status">localizando você… (arraste o
+    mapa — os lugares acompanham)</span></div>
+</div>
+<a id="stats-link" href="stats.html" title="estatísticas">📊</a>
+
+<div id="sheet">
+  <div class="alca"></div>
+  <button class="fechar" onclick="fecharFicha()">✕</button>
+  <div id="sheet-conteudo"></div>
+</div>
+
+<div id="trilho" class="vazio"></div>
+
+<button id="modoLista">☰ hoje</button>
+<div id="lista">
+  <h2>rolando na tela <span id="lista-n"></span></h2>
+  <div id="lista-rows"></div>
+</div>
+
+<script>
+var center = { lat: -23.5505, lng: -46.6333 };
+var API = 'https://quxzjsnjgpisepslcpnc.supabase.co/functions/v1/search';
+var STATS = 'https://quxzjsnjgpisepslcpnc.supabase.co/functions/v1/stats';
+fetch(STATS, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ beacon: 'map_open' }) });
+
+var map, meMarker;
+var markers = [];
+var modo = 'today';   // o produto abre respondendo "o que tem HOJE?"
+var lastBusca = { lat: null, lng: null, zoom: null };
+var statusEl = document.getElementById('status');
+var sheetEl = document.getElementById('sheet');
+
+var EMOJI = { bar: '🍺', restaurante: '🍽️', casa_de_show: '🎤',
+  teatro: '🎭', praca: '🌳', event_venue: '🎪', other: '📍' };
+
+// pulso só para MÚSICA de verdade (caso "rodízio de caldos" 😂):
+// gênero precisa estar nesta lista — LLM inventa gênero de comida
+var GENEROS_MUSICA = ['samba', 'pagode', 'rock', 'sertanejo', 'funk',
+  'forró', 'forro', 'mpb', 'jazz', 'blues', 'rap', 'trap', 'pop',
+  'axé', 'axe', 'eletrônica', 'eletronica', 'reggae', 'gospel',
+  'karaoke', 'karaokê', 'choro', 'piseiro', 'arrocha', 'brega',
+  'pagonejo', 'metal', 'indie', 'soul', 'r&b', 'hip hop', 'trio',
+  'roda de samba', 'música ao vivo', 'musica ao vivo', 'show',
+  'dj', 'balada', 'festa', 'festival', 'comédia', 'comedia',
+  'stand', 'banda', 'voz e violão', 'acústico', 'acustico'];
+function temMusica(ev) {
+  if (!ev || !ev.genres) return false;
+  return ev.genres.some(function (g) {
+    g = String(g).toLowerCase();
+    return GENEROS_MUSICA.some(function (m) { return g.indexOf(m) >= 0; });
+  });
+}
+
+function spDate(daysAhead) {
+  var d = new Date(Date.now() - 3 * 3600000 + (daysAhead || 0) * 86400000);
+  return d.toISOString().slice(0, 10);
+}
+
+var deepLinkId = new URLSearchParams(location.search).get('e');
+
+function initMap() {
+  map = new maplibregl.Map({
+    container: 'map',
+    style: 'https://tiles.openfreemap.org/styles/liberty',
+    center: [center.lng, center.lat],
+    zoom: 14,
+    attributionControl: { compact: true },
+  });
+  var meEl = document.createElement('div');
+  meEl.className = 'me';
+  meEl.title = 'você';
+  meMarker = new maplibregl.Marker({ element: meEl, anchor: 'bottom' })
+    .setLngLat([center.lng, center.lat]).addTo(map);
+  map.on('click', fecharFicha);
+  map.on('moveend', function () {
+    var c = map.getCenter();
+    if (!c) return;
+    var moved = lastBusca.lat === null ||
+      map.getZoom() !== lastBusca.zoom ||
+      distM(c.lat, c.lng, lastBusca.lat, lastBusca.lng) >
+        viewportRadius() * 0.35;
+    if (moved) buscar();
+  });
+  // deep-link /?e=<id>: chegou pelo compartilhamento → centra no lugar
+  // e abre a ficha (a geolocalização NÃO rouba a cena nesse caso)
+  if (deepLinkId) {
+    abrirDeepLink(deepLinkId);
+  } else {
+    localizar(false);
+  }
+}
+
+function abrirDeepLink(id) {
+  statusEl.textContent = 'abrindo o rolê compartilhado…';
+  fetch(API + '?event=' + encodeURIComponent(id) + '&ref=deeplink')
+    .then(function (r) { return r.json(); })
+    .then(function (ev) {
+      var p = ev.place;
+      if (!p || !p.location) { localizar(false); return; }
+      map.jumpTo({ center: [p.location.lng, p.location.lat], zoom: 16 });
+      abrirFicha({
+        name: p.name,
+        place_type: p.city || '',
+        distance_m: '—',
+        open_now: p.open_now,
+        tags: {},
+        instagram: p.instagram,
+        maps_url: p.maps_url,
+        location: p.location,
+        next_event: {
+          id: ev.id, title: ev.title, starts_at: ev.starts_at,
+          ends_at: ev.ends_at, start_time_known: ev.start_time_known,
+          genres: ev.genres, price_min: ev.price_min,
+          ticket_url: ev.ticket_url, source_url: ev.source_url,
+        },
+      });
+    })
+    .catch(function () { localizar(false); });
+}
+
+function distM(lat1, lng1, lat2, lng2) {
+  var R = 6371000, rad = Math.PI / 180;
+  var dLat = (lat2 - lat1) * rad, dLng = (lng2 - lng1) * rad;
+  var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * rad) * Math.cos(lat2 * rad) *
+    Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+function viewportRadius() {
+  var b = map && map.getBounds();
+  if (!b) return 2000;
+  var ne = b.getNorthEast(), c = map.getCenter();
+  return Math.round(Math.min(10000,
+    Math.max(400, distM(c.lat, c.lng, ne.lat, ne.lng) * 0.9)));
+}
+
+function localizar(manual) {
+  if (!navigator.geolocation) {
+    if (manual) statusEl.textContent = 'navegador sem geolocalização';
+    return;
+  }
+  if (manual) statusEl.textContent = 'localizando você…';
+  navigator.geolocation.getCurrentPosition(function (pos) {
+    var aqui = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+    meMarker.position = aqui;
+    map.setCenter(aqui);
+    map.setZoom(15);
+  }, function () {
+    statusEl.textContent = 'seu aparelho não conseguiu se localizar — ' +
+      'arraste o mapa, use 🏙️ ou tente 📍 de novo';
+  }, { enableHighAccuracy: false, timeout: 8000, maximumAge: 120000 });
+}
+
+// semáforo do pulso (pedido: Bruno): verde forte = ROLANDO agora
+// (até ends_at; sem fim conhecido, régua de 4h após o início);
+// âmbar suave = ainda hoje, mas mais tarde
+function rolandoAgora(r) {
+  var ev = r.next_event;
+  if (!ev) return false;
+  var ini = new Date(ev.starts_at).getTime();
+  var fim = ev.ends_at ? new Date(ev.ends_at).getTime()
+    : ini + 4 * 3600000;
+  var agora = Date.now();
+  return agora >= ini && agora < fim;
+}
+function aindaHoje(r) {
+  var ev = r.next_event;
+  if (!ev) return false;
+  var ini = new Date(ev.starts_at).getTime();
+  if (ini <= Date.now()) return false;
+  var hoje = spDate(0);
+  var diaEv = new Date(ini - 3 * 3600000).toISOString().slice(0, 10);
+  return diaEv === hoje;
+}
+
+function pinEl(r) {
+  var el = document.createElement('div');
+  el.className = 'pin ' + (r.open_now === true ? 'aberto-sim'
+    : r.open_now === false ? 'aberto-nao' : '');
+  if (temMusica(r.next_event)) {
+    if (rolandoAgora(r)) el.className += ' rolando';
+    else if (aindaHoje(r)) el.className += ' embreve';
+  }
+  el.textContent = EMOJI[r.place_type] || EMOJI.other;
+  el.title = r.name;
+  if (r.next_event) {
+    var b = document.createElement('span');
+    b.className = 'badge';
+    b.textContent = temMusica(r.next_event) ? '🎵' : '📅';
+    el.appendChild(b);
+  }
+  return el;
+}
+
+function fmtEvent(ev) {
+  if (!ev) return '';
+  var d = new Date(ev.starts_at);
+  var quando = ev.start_time_known === false
+    ? d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit',
+        month: '2-digit', timeZone: 'America/Sao_Paulo' }) + ' · horário no local'
+    : d.toLocaleString('pt-BR', { weekday: 'short', day: '2-digit',
+        month: '2-digit', hour: '2-digit', minute: '2-digit',
+        timeZone: 'America/Sao_Paulo' });
+  var html = '<div class="event">🎵 <b>' + ev.title + '</b><br>' + quando;
+  if (ev.price_min != null) html += ' · a partir de R$ ' + ev.price_min;
+  if (ev.ticket_url) html += ' · <a href="' + ev.ticket_url +
+    '" target="_blank">ingresso</a>';
+  return html + '</div>';
+}
+
+function abrirFicha(r) {
+  var abertoTxt = r.open_now === true ? '<span class="aberto">aberto</span>'
+    : r.open_now === false ? '<span class="fechado">fechado</span>'
+    : 'horário desconhecido';
+  var tags = Object.keys(r.tags || {}).map(function (k) {
+    var v = r.tags[k];
+    return '<span class="tag">' + (v === true ? k :
+      k + ': ' + (Array.isArray(v) ? v.join(', ') : v)) + '</span>';
+  }).join('');
+  var links = [];
+  if (r.next_event && r.next_event.id) {
+    links.push('<a href="#" onclick="compartilhar(\'' + r.next_event.id +
+      '\', \'' + (r.next_event.title || '').replace(/'/g, '') +
+      '\', \'' + r.name.replace(/'/g, '') +
+      '\'); return false">📤 compartilhar</a>');
+  }
+  if (r.next_event && r.next_event.source_url) {
+    links.push('<a href="' + r.next_event.source_url +
+      '" target="_blank">mais info</a>');
+  }
+  if (r.instagram) {
+    links.push('<a href="https://instagram.com/' + r.instagram +
+      '" target="_blank">Instagram</a>');
+  }
+  links.push('<a href="' + r.maps_url + '" target="_blank">Google Maps →</a>');
+  links.push('<a href="https://m.uber.com/ul/?action=setPickup&pickup=my_location' +
+    '&dropoff[latitude]=' + r.location.lat +
+    '&dropoff[longitude]=' + r.location.lng +
+    '&dropoff[nickname]=' + encodeURIComponent(r.name) +
+    '" target="_blank">🚗 Uber</a>');
+  links.push('<a href="taxis99://call?dest_lat=' + r.location.lat +
+    '&dest_lng=' + r.location.lng +
+    '&dest_name=' + encodeURIComponent(r.name) +
+    '" title="abre o app do 99">🚕 99</a>');
+  document.getElementById('sheet-conteudo').innerHTML =
+    '<h3>' + (EMOJI[r.place_type] || EMOJI.other) + ' ' + r.name + '</h3>' +
+    '<div class="meta">' + r.place_type + ' · ' + r.distance_m + ' m · ' +
+    abertoTxt + '</div>' + tags + fmtEvent(r.next_event) +
+    '<div class="links">' + links.join('') + '</div>';
+  sheetEl.classList.add('up');
+}
+
+function fecharFicha() {
+  sheetEl.classList.remove('up');
+}
+
+// nº 1 do backlog da galera: link rastreável do evento (ref=share no
+// mapa; a página /e/ re-compartilha com ref=wa)
+function compartilhar(id, titulo, lugar) {
+  var url = 'https://musicadehoje.com.br/e/?id=' + id + '&ref=share';
+  var texto = titulo + ' — ' + lugar + '\n' + url;
+  if (navigator.share) {
+    navigator.share({ title: titulo, text: texto, url: url });
+  } else {
+    navigator.clipboard.writeText(url);
+    statusEl.textContent = '✅ link do evento copiado!';
+  }
+}
+
+// ===== onda B: trilho de eventos sincronizado com o mapa =====
+var trilhoEl = document.getElementById('trilho');
+var trilhoItens = [];
+var trilhoTimer = null;
+
+function focarLugar(r, abrir) {
+  // pan programático não pode disparar re-busca do idle
+  lastBusca.lat = r.location.lat;
+  lastBusca.lng = r.location.lng;
+  lastBusca.zoom = map.getZoom();
+  map.flyTo({ center: [r.location.lng, r.location.lat], speed: 1.6 });
+  if (abrir) abrirFicha(r);
+}
+
+function montarTrilho(results) {
+  trilhoItens = results.filter(function (r) { return r.next_event; })
+    .sort(function (a, b) {
+      return new Date(a.next_event.starts_at) - new Date(b.next_event.starts_at);
+    });
+  if (!trilhoItens.length) {
+    trilhoEl.classList.add('vazio');
+    trilhoEl.innerHTML = '';
+    return;
+  }
+  trilhoEl.classList.remove('vazio');
+  trilhoEl.innerHTML = trilhoItens.map(function (r, i) {
+    var ev = r.next_event;
+    var d = new Date(ev.starts_at);
+    var hora = ev.start_time_known === false
+      ? d.toLocaleDateString('pt-BR', { weekday: 'short',
+          timeZone: 'America/Sao_Paulo' }) + ' · horário no local'
+      : d.toLocaleString('pt-BR', { weekday: 'short', hour: '2-digit',
+          minute: '2-digit', timeZone: 'America/Sao_Paulo' });
+    return '<div class="cardev" data-i="' + i + '">' +
+      '<div class="tit">' + (temMusica(ev) ? '🎵 ' : '📅 ') + ev.title +
+      '</div><div class="sub">' + r.name + ' · ' + hora + '</div></div>';
+  }).join('');
+  trilhoEl.querySelectorAll('.cardev').forEach(function (c) {
+    c.onclick = function () {
+      marcarAtivo(+c.dataset.i);
+      focarLugar(trilhoItens[+c.dataset.i], true);
+    };
+  });
+}
+
+function marcarAtivo(i) {
+  trilhoEl.querySelectorAll('.cardev').forEach(function (c, j) {
+    c.classList.toggle('ativo', j === i);
+  });
+}
+
+// ===== onda C: modo lista =====
+var listaEl = document.getElementById('lista');
+var modoListaBtn = document.getElementById('modoLista');
+
+function montarLista() {
+  document.getElementById('lista-n').textContent =
+    '· ' + trilhoItens.length + (trilhoItens.length === 1 ? ' rolê' : ' rolês');
+  document.getElementById('lista-rows').innerHTML =
+    trilhoItens.map(function (r, i) {
+      var ev = r.next_event;
+      var d = new Date(ev.starts_at);
+      var hora = ev.start_time_known === false ? 'horário no local'
+        : d.toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit',
+            timeZone: 'America/Sao_Paulo' });
+      return '<div class="rowev" data-i="' + i + '">' +
+        '<div class="tit">' + (temMusica(ev) ? '🎵 ' : '📅 ') + ev.title +
+        '</div><div class="sub">' + (EMOJI[r.place_type] || '📍') + ' ' +
+        r.name + ' · ' + hora + ' · ' + r.distance_m + ' m</div></div>';
+    }).join('') ||
+    '<div class="sub" style="color:#9fb3c8">nada na tela — arraste o ' +
+    'mapa ou afrouxe os filtros</div>';
+  document.querySelectorAll('.rowev').forEach(function (row) {
+    row.onclick = function () {
+      var i = +row.dataset.i;
+      fecharLista();
+      marcarAtivo(i);
+      focarLugar(trilhoItens[i], true);
+    };
+  });
+}
+function fecharLista() {
+  listaEl.classList.remove('up');
+  modoListaBtn.textContent = '☰ hoje';
+}
+modoListaBtn.onclick = function () {
+  if (listaEl.classList.contains('up')) {
+    fecharLista();
+  } else {
+    fecharFicha();
+    montarLista();
+    listaEl.classList.add('up');
+    modoListaBtn.textContent = '🗺️ mapa';
+  }
+};
+
+// deslizou o trilho → card do centro assume e o mapa voa junto
+trilhoEl.addEventListener('scroll', function () {
+  clearTimeout(trilhoTimer);
+  trilhoTimer = setTimeout(function () {
+    if (!trilhoItens.length) return;
+    var meio = trilhoEl.scrollLeft + trilhoEl.clientWidth / 2;
+    var cards = trilhoEl.querySelectorAll('.cardev');
+    var melhor = 0, menor = Infinity;
+    cards.forEach(function (c, i) {
+      var centro = c.offsetLeft + c.offsetWidth / 2;
+      var dist = Math.abs(centro - meio);
+      if (dist < menor) { menor = dist; melhor = i; }
+    });
+    if (!cards[melhor].classList.contains('ativo')) {
+      marcarAtivo(melhor);
+      focarLugar(trilhoItens[melhor], false);
+    }
+  }, 160);
+});
+
+function buscar() {
+  if (!map) return;
+  statusEl.textContent = 'buscando…';
+  var c = map.getCenter();
+  center = { lat: c.lat(), lng: c.lng() };
+  lastBusca = { lat: center.lat, lng: center.lng, zoom: map.getZoom() };
+  var p = new URLSearchParams({
+    lat: center.lat, lng: center.lng,
+    radius_m: viewportRadius(), limit: 50,
+  });
+  var q = document.getElementById('q').value.trim();
+  if (q) p.set('q', q);
+  if (modo === 'agora') p.set('open_now', 'true');
+  else if (modo === 'today') p.set('when', 'today');
+  else if (modo === 'amanha') p.set('when', spDate(1));
+  else if (modo === 'weekend') p.set('when', 'weekend');
+  if (document.getElementById('evento').classList.contains('on')) {
+    p.set('has_event', 'true');
+  }
+  if (document.getElementById('musica').classList.contains('on')) {
+    p.set('tags', 'musica_ao_vivo');
+  }
+  fetch(API + '?' + p).then(function (r) { return r.json(); })
+    .then(function (d) {
+      markers.forEach(function (m) { m.remove(); });
+      markers = [];
+      (d.results || []).forEach(function (r) {
+        var el = pinEl(r);
+        el.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          abrirFicha(r);
+        });
+        var m = new maplibregl.Marker({ element: el, anchor: 'bottom' })
+          .setLngLat([r.location.lng, r.location.lat]).addTo(map);
+        markers.push(m);
+      });
+      montarTrilho(d.results || []);
+      if (listaEl.classList.contains('up')) montarLista();
+      statusEl.textContent = d.count + ' na tela · 🟢 pulsando = ' +
+        'rolando agora · 🟡 = mais tarde hoje';
+    })
+    .catch(function (e) { statusEl.textContent = 'erro: ' + e.message; });
+}
+
+document.querySelectorAll('.chip[data-modo]').forEach(function (c) {
+  c.onclick = function () {
+    document.querySelectorAll('.chip[data-modo]').forEach(function (x) {
+      x.classList.remove('on');
+    });
+    c.classList.add('on');
+    modo = c.dataset.modo;
+    buscar();
+  };
+});
+document.querySelectorAll('.chip.toggle').forEach(function (c) {
+  c.onclick = function () {
+    c.classList.toggle('on');
+    buscar();
+  };
+});
+document.getElementById('cidade').onchange = function () {
+  if (!this.value) return;
+  var xy = this.value.split(',');
+  fecharFicha();
+  map.jumpTo({ center: [parseFloat(xy[1]), parseFloat(xy[0])], zoom: 14 });
+  this.value = '';
+};
+document.getElementById('loc').onclick = function () { localizar(true); };
+document.getElementById('go').onclick = buscar;
+document.getElementById('q').addEventListener('keydown', function (e) {
+  if (e.key === 'Enter') { buscar(); this.blur(); }
+});
+</script>
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script>initMap();</script>
+</body>
+</html>
