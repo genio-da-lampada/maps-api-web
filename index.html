@@ -11,6 +11,12 @@
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#1a1a2e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="música de hoje">
+<link rel="apple-touch-icon" href="/icon-180.png">
 <style>
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%;
@@ -234,6 +240,7 @@
 </div>
 <div id="favs">
   <h2>⭐ meus lugares <span id="favs-n"></span></h2>
+  <button id="sino" class="chip" style="margin:0 0 12px">🔔 avisar rolês novos dos favoritos</button>
   <div id="favs-rows"></div>
 </div>
 
@@ -250,6 +257,7 @@ var modo = 'today';   // o produto abre respondendo "o que tem HOJE?"
 var oque = 'shows';   // seletor único de conteúdo: o padrão É o show
 var LIMITE = 200;     // teto da busca (o servidor também capa em 200)
 var pendingFichaId = null;  // lugar achado pela busca-longe: abre ao chegar
+var VAPID_PUBLIC = 'BMdRf0uUd-1dHLxExaAFmtQkneHPbSnaxSffJfbr8vzw7F5LKV2gUVAGxDXzuoYvTb0rLdPEm_P1wQAC7On3mHo';
 var markersById = {};       // id → {marker, elemento} da rodada atual
 var destaqueId = null;      // pin da ficha aberta (anel vermelho-marca)
 var lastBusca = { lat: null, lng: null, zoom: null };
@@ -571,6 +579,7 @@ function lerFavs() {
 }
 function gravarFavs(f) {
   localStorage.setItem('mdh_favs', JSON.stringify(f));
+  sincronizarPush();   // sino ligado → servidor acompanha a lista
 }
 function ehFav(id) {
   return lerFavs().some(function (x) { return x.id === id; });
@@ -626,6 +635,108 @@ function montarFavs() {
   });
 }
 function fecharFavs() { favsEl.classList.remove('up'); }
+
+// ===== push dos favoritos (v1 sem login — voto do Bruno) =====
+var sinoBtn = document.getElementById('sino');
+function pintarSino() {
+  var on = localStorage.getItem('mdh_push') === '1';
+  sinoBtn.textContent = on
+    ? '🔔 avisos ligados — tocar pra desligar'
+    : '🔔 avisar rolês novos dos favoritos';
+  sinoBtn.classList.toggle('on', on);
+}
+function b64ToU8(s) {
+  var pad = '='.repeat((4 - s.length % 4) % 4);
+  var raw = atob((s + pad).replace(/-/g, '+').replace(/_/g, '/'));
+  return Uint8Array.from(raw, function (c) { return c.charCodeAt(0); });
+}
+function ehIosForaDoApp() {
+  var ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  var instalado = window.matchMedia('(display-mode: standalone)').matches ||
+    navigator.standalone === true;
+  return ios && !instalado;
+}
+function sincronizarPush() {
+  if (localStorage.getItem('mdh_push') !== '1') return;
+  navigator.serviceWorker.ready.then(function (reg) {
+    return reg.pushManager.getSubscription();
+  }).then(function (sub) {
+    if (!sub) return;
+    fetch('https://quxzjsnjgpisepslcpnc.supabase.co/functions/v1/push-subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        subscription: sub.toJSON(),
+        place_ids: lerFavs().map(function (f) { return f.id; }),
+      }),
+    }).catch(function () {});
+  }).catch(function () {});
+}
+sinoBtn.onclick = function () {
+  if (localStorage.getItem('mdh_push') === '1') {
+    localStorage.removeItem('mdh_push');
+    navigator.serviceWorker.ready.then(function (reg) {
+      return reg.pushManager.getSubscription();
+    }).then(function (sub) {
+      if (!sub) return;
+      fetch('https://quxzjsnjgpisepslcpnc.supabase.co/functions/v1/push-subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ unsubscribe: true, endpoint: sub.endpoint }),
+      }).catch(function () {});
+      sub.unsubscribe();
+    }).catch(function () {});
+    pintarSino();
+    statusEl.textContent = '🔕 avisos desligados';
+    return;
+  }
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    if (ehIosForaDoApp()) {
+      statusEl.textContent = '🍎 no iPhone: Compartilhar → "Adicionar à ' +
+        'Tela de Início", abre por lá e liga o sino';
+    } else {
+      statusEl.textContent = 'esse navegador não suporta avisos 😕';
+    }
+    return;
+  }
+  if (!lerFavs().length) {
+    statusEl.textContent = 'salva um lugar primeiro (☆ na ficha) — aí o sino faz sentido!';
+    return;
+  }
+  navigator.serviceWorker.register('/sw.js').then(function () {
+    return navigator.serviceWorker.ready;
+  }).then(function (reg) {
+    return Notification.requestPermission().then(function (perm) {
+      if (perm !== 'granted') throw new Error('sem permissão');
+      return reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: b64ToU8(VAPID_PUBLIC),
+      });
+    });
+  }).then(function (sub) {
+    return fetch('https://quxzjsnjgpisepslcpnc.supabase.co/functions/v1/push-subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        subscription: sub.toJSON(),
+        place_ids: lerFavs().map(function (f) { return f.id; }),
+      }),
+    });
+  }).then(function (r) {
+    if (!r.ok) throw new Error('falha ao inscrever');
+    localStorage.setItem('mdh_push', '1');
+    pintarSino();
+    statusEl.textContent = '🔔 combinado! aviso quando os favoritos tiverem rolê novo';
+  }).catch(function (e) {
+    statusEl.textContent = e.message === 'sem permissão'
+      ? 'sem permissão do navegador — dá pra mudar nas configurações do site'
+      : 'não rolou ligar os avisos: ' + e.message;
+  });
+};
+pintarSino();
+if ('serviceWorker' in navigator && localStorage.getItem('mdh_push') === '1') {
+  navigator.serviceWorker.register('/sw.js').catch(function () {});
+}
 modoFavsBtn.onclick = function () {
   if (favsEl.classList.contains('up')) { fecharFavs(); return; }
   fecharFicha();
