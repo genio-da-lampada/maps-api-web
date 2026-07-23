@@ -291,6 +291,7 @@ function spDate(daysAhead) {
 }
 
 var deepLinkId = new URLSearchParams(location.search).get('e');
+var deepLinkPlace = new URLSearchParams(location.search).get('p');
 
 function initMap() {
   map = new google.maps.Map(document.getElementById('map'), {
@@ -320,9 +321,26 @@ function initMap() {
   // e abre a ficha (a geolocalização NÃO rouba a cena nesse caso)
   if (deepLinkId) {
     abrirDeepLink(deepLinkId);
+  } else if (deepLinkPlace) {
+    abrirDeepLinkLugar(deepLinkPlace);
   } else {
     localizar(false);
   }
+}
+
+// /?p=<id>: chegou pela página do LUGAR → voa e abre a ficha
+function abrirDeepLinkLugar(id) {
+  fetch(API + '?place=' + encodeURIComponent(id) + '&ref=deeplink')
+    .then(function (r) { return r.json(); })
+    .then(function (p) {
+      if (!p || !p.location) { localizar(false); return; }
+      alargarFiltros();
+      pendingFichaId = p.id;
+      map.setCenter({ lat: p.location.lat, lng: p.location.lng });
+      map.setZoom(16);
+      buscar();
+    })
+    .catch(function () { localizar(false); });
 }
 
 function abrirDeepLink(id) {
@@ -469,6 +487,7 @@ function abrirFicha(r) {
     links.push('<a href="https://instagram.com/' + r.instagram +
       '" target="_blank">Instagram</a>');
   }
+  links.push('<a href="/l/?id=' + r.id + '" target="_blank">📄 página</a>');
   links.push('<a href="' + r.maps_url + '" target="_blank">Google Maps →</a>');
   links.push('<a href="https://m.uber.com/ul/?action=setPickup&pickup=my_location' +
     '&dropoff[latitude]=' + r.location.lat +

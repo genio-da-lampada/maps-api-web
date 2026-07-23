@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>música de hoje — a agenda desse rolê</title>
+<meta property="og:site_name" content="música de hoje">
+<meta property="og:title" content="a agenda desse rolê 🎵">
+<meta property="og:description"
+  content="Bar, agenda e como chegar — no mapa vivo do música de hoje.">
+<meta property="og:image" content="https://musicadehoje.com.br/og-card.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; background: #1a1a2e;
+    font-family: -apple-system, system-ui, sans-serif;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 24px 14px calc(24px + env(safe-area-inset-bottom)); }
+  #card { background: #fff; border-radius: 18px; padding: 22px 20px;
+    max-width: 480px; width: 100%;
+    box-shadow: 0 8px 30px rgba(10,10,30,.45); }
+  h1 { font-size: 21px; margin: 0 0 4px; color: #1a1a2e; }
+  .meta { font-size: 13px; color: #5f6b7a; margin-bottom: 8px; }
+  .aberto { color: #0a7d33; font-weight: 700; }
+  .fechado { color: #a33; font-weight: 700; }
+  .tag { display: inline-block; background: #eef; color: #336;
+    border-radius: 10px; padding: 2px 9px; font-size: 11px;
+    margin: 0 4px 4px 0; }
+  h2 { font-size: 14px; color: #1a1a2e; margin: 16px 0 8px; }
+  .ev { display: block; background: #fff7e6; border-radius: 10px;
+    padding: 9px 11px; font-size: 13px; margin-bottom: 7px;
+    color: #4a3b1e; text-decoration: none; }
+  .ev b { color: #1a1a2e; }
+  .ev .qd { color: #7a6a4a; font-size: 12px; }
+  .vazio { color: #9fb3c8; font-size: 13px; }
+  .botoes { display: flex; flex-direction: column; gap: 8px;
+    margin-top: 16px; }
+  .botoes a { display: block; text-align: center; text-decoration: none;
+    border-radius: 12px; padding: 12px; font-size: 14px; font-weight: 700; }
+  .primario { background: #e94560; color: #fff; }
+  .secundario { background: #eef2f7; color: #1a1a2e; }
+  .linha { display: flex; gap: 8px; }
+  .linha a { flex: 1; }
+  #rodape { color: #9fb3c8; font-size: 12px; margin-top: 18px;
+    text-align: center; }
+  #rodape a { color: #e94560; text-decoration: none; font-weight: 700; }
+  #estado { color: #9fb3c8; font-size: 14px; margin-top: 40vh; }
+</style>
+</head>
+<body>
+<p id="estado">carregando a casa…</p>
+<div id="card" style="display:none"></div>
+<p id="rodape" style="display:none">
+  <a href="/">música de hoje</a> — o que tá rolando perto de você
+</p>
+<script>
+var API = 'https://quxzjsnjgpisepslcpnc.supabase.co/functions/v1/search';
+var params = new URLSearchParams(location.search);
+var id = params.get('id');
+var ref = params.get('ref') || 'direto';
+var estadoEl = document.getElementById('estado');
+var EMOJI = { bar: '🍺', restaurante: '🍽️', cafe: '☕', casa_de_show: '🎤',
+  teatro: '🎭', praca: '🌳', estadio: '🏟️', other: '📍' };
+
+function esc(s) {
+  var d = document.createElement('div');
+  d.textContent = s == null ? '' : String(s);
+  return d.innerHTML;
+}
+function fmtEv(ev) {
+  var d = new Date(ev.starts_at);
+  var quando = ev.start_time_known === false
+    ? d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit',
+        month: '2-digit', timeZone: 'America/Sao_Paulo' }) +
+      ' · horário no local'
+    : d.toLocaleString('pt-BR', { weekday: 'short', day: '2-digit',
+        month: '2-digit', hour: '2-digit', minute: '2-digit',
+        timeZone: 'America/Sao_Paulo' });
+  return '<a class="ev" href="/e/?id=' + ev.id + '&ref=pagina-lugar">' +
+    '<b>' + (ev.genres && ev.genres.length ? '🎵 ' : '📅 ') +
+    esc(ev.title) + '</b><br><span class="qd">' + quando +
+    (ev.price_min != null ? ' · a partir de R$ ' + esc(ev.price_min) : '') +
+    '</span></a>';
+}
+
+if (!id) {
+  estadoEl.textContent = 'link incompleto — peça pra mandarem de novo!';
+} else {
+  fetch(API + '?place=' + encodeURIComponent(id) +
+        '&ref=' + encodeURIComponent(ref))
+    .then(function (r) {
+      if (!r.ok) throw new Error('não achei');
+      return r.json();
+    })
+    .then(function (p) {
+      var abertoTxt = p.open_now === true
+        ? '<span class="aberto">aberto agora</span>'
+        : p.open_now === false ? '<span class="fechado">fechado agora</span>'
+        : '';
+      var tags = (p.tags || []).map(function (t) {
+        return '<span class="tag">' + esc(t.key === 'genero'
+          ? t.value : (t.value === 'true' ? t.key : t.key + ': ' + t.value)) +
+          '</span>';
+      }).join('');
+      var evs = (p.upcoming_events || []).slice(0, 8);
+      var agenda = evs.length
+        ? evs.map(fmtEv).join('')
+        : '<div class="vazio">nada anunciado por enquanto — o robô ' +
+          'confere todo dia 🤖</div>';
+      var botoes = ['<a class="primario" href="/?p=' + p.id +
+        '">🗺️ ver no mapa vivo</a>'];
+      var linha = [];
+      if (p.maps_url) {
+        linha.push('<a class="secundario" href="' + esc(p.maps_url) +
+          '">Google Maps</a>');
+      }
+      if (p.instagram) {
+        linha.push('<a class="secundario" href="https://instagram.com/' +
+          esc(p.instagram) + '">Instagram</a>');
+      }
+      if (p.location) {
+        linha.push('<a class="secundario" href="https://m.uber.com/ul/?' +
+          'action=setPickup&pickup=my_location&dropoff[latitude]=' +
+          p.location.lat + '&dropoff[longitude]=' + p.location.lng +
+          '&dropoff[nickname]=' + encodeURIComponent(p.name || '') +
+          '">🚗 Uber</a>');
+      }
+      document.getElementById('card').innerHTML =
+        '<h1>' + (EMOJI[p.place_type] || '📍') + ' ' + esc(p.name) + '</h1>' +
+        '<div class="meta">' + esc(p.place_type || '') + ' · ' + abertoTxt +
+        '<br>' + esc(p.address || '') + '</div>' + tags +
+        '<h2>agenda da casa</h2>' + agenda +
+        '<div class="botoes">' + botoes.join('') +
+        (linha.length
+          ? '<div class="linha">' + linha.join('') + '</div>' : '') +
+        '<a class="secundario" href="#" id="btn-share">📤 mandar pra ' +
+        'galera</a></div>';
+      document.title = esc(p.name) + ' — música de hoje';
+      estadoEl.style.display = 'none';
+      document.getElementById('card').style.display = 'block';
+      document.getElementById('rodape').style.display = 'block';
+      document.getElementById('btn-share').onclick = function (e) {
+        e.preventDefault();
+        var url = 'https://musicadehoje.com.br/l/?id=' + id + '&ref=wa';
+        var texto = p.name + ' — agenda e como chegar:\n' + url;
+        if (navigator.share) {
+          navigator.share({ title: p.name, text: texto, url: url });
+        } else {
+          navigator.clipboard.writeText(url);
+          this.textContent = '✅ link copiado!';
+        }
+      };
+    })
+    .catch(function () {
+      estadoEl.innerHTML = 'não achei essa casa — ' +
+        '<a href="/" style="color:#e94560">volta pro mapa vivo</a>';
+    });
+}
+</script>
+</body>
+</html>
