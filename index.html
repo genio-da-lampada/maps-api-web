@@ -206,6 +206,7 @@
     <span class="chip" data-modo="weekend">fds</span>
     <span class="chip oque on" data-oque="shows">🎵 música</span>
     <span class="chip oque" data-oque="eventos">✨ eventos</span>
+    <span class="chip oque" data-oque="feiras">🧺 feiras</span>
     <span class="chip oque" data-oque="todos">🍺 todos</span>
     <span class="chip oque sossego" data-oque="sossego">🔇 sossego</span>
     <select class="chip" id="genero" title="filtrar por gênero">
@@ -868,9 +869,15 @@ function buscar() {
     p.set('has_event', 'true');
     p.set('event_genres', genero || GENEROS_MUSICA.join(','));
   } else if (oque === 'eventos') {
+    // rolê de agenda — feira tem casa própria no 🧺 (voto A, 27/07)
     p.set('has_event', 'true');
+    p.set('exclude_place_types', 'feira');
+  } else if (oque === 'feiras') {
+    p.set('has_event', 'true');
+    p.set('place_types', 'feira');
   } else if (oque === 'sossego') {
     p.set('exclude_tags', 'musica_ao_vivo');
+    p.set('exclude_place_types', 'feira');
   }
   fetch(API + '?' + p).then(function (r) { return r.json(); })
     .then(function (d) {
@@ -910,6 +917,8 @@ function buscar() {
         : d.count;
       statusEl.textContent = oque === 'sossego'
         ? n + ' na tela · 🔇 só lugares sem música ao vivo'
+        : oque === 'feiras'
+        ? n + ' na tela · 🧺 feiras com dia de feira na janela'
         : n + ' na tela · 🟢 pulsando = rolando agora · ' +
           '🟡 = mais tarde hoje';
     })
