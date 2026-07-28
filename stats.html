@@ -30,6 +30,16 @@
   .ok { color: #0a7d33; font-weight: 700; }
   .err { color: #a33; font-weight: 700; }
   .bar { background: #e94560; height: 10px; border-radius: 5px; }
+  /* barra empilhada (ideia do Bruno 27/07): cobertura da Antena por
+     cidade — parte forte = já tem Instagram, resto = ainda sem */
+  .bar2 { display: flex; height: 10px; border-radius: 5px;
+    overflow: hidden; background: transparent; }
+  .bar2 .ig { background: #e94560; }
+  .bar2 .sem { background: #f3c1cb; }
+  .leg { font-size: 12.5px; color: #777; margin: -6px 0 6px; }
+  .leg i { display: inline-block; width: 10px; height: 10px;
+    border-radius: 3px; vertical-align: -1px; font-style: normal; }
+  .ign { color: #e94560; font-weight: 600; }
   .muted { color: #99a; }
   #status { padding: 8px 18px; font-size: 12px; color: #667; }
 </style>
@@ -62,6 +72,9 @@ https://quxzjsnjgpisepslcpnc.supabase.co/functions/v1/search?lat=&lt;lat&gt;&amp
   <table id="buscas"><thead><tr><th>busca</th><th>vezes</th></tr></thead>
     <tbody></tbody></table>
   <h2>Lugares por cidade</h2>
+  <p class="leg"><i style="background:#e94560"></i> com instagram
+    vinculado · <i style="background:#f3c1cb"></i> ainda sem — o
+    medidor da Operação Antena</p>
   <table id="cidades"><thead><tr>
     <th>cidade</th><th>lugares</th><th></th>
   </tr></thead><tbody></tbody></table>
@@ -143,9 +156,17 @@ fetch(STATS, { cache: 'no-store' }).then(function (r) { return r.json(); }).then
     return c.lugares; }).concat([1]));
   document.querySelector('#cidades tbody').innerHTML =
     d.base.cidades.map(function (c) {
+      var ig = c.com_ig || 0;
+      var larg = Math.round(100 * c.lugares / cmax);
+      var pIg = c.lugares ? (100 * ig / c.lugares) : 0;
       return '<tr><td>' + c.cidade + '</td><td>' + c.lugares +
-        '</td><td style="width:40%"><div class="bar" style="width:' +
-        Math.round(100 * c.lugares / cmax) + '%"></div></td></tr>';
+        (ig ? ' <span class="ign">· ' + ig + ' 📸</span>' : '') +
+        '</td><td style="width:40%"><div class="bar2" style="width:' +
+        larg + '%" title="' + ig + ' de ' + c.lugares +
+        ' com instagram">' +
+        '<span class="ig" style="width:' + pIg.toFixed(1) + '%"></span>' +
+        '<span class="sem" style="width:' + (100 - pIg).toFixed(1) +
+        '%"></span></div></td></tr>';
     }).join('');
 
   document.querySelector('#regioes tbody').innerHTML =
