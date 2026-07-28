@@ -66,6 +66,8 @@
     cursor: pointer; border-bottom: 1px solid #eef2f7; }
   .sug:last-child { border-bottom: none; }
   .sug:hover { background: #f6f8fb; }
+  .sug.vibe { background: #fff7e6; font-weight: 600; }
+  .sug.vibe:hover { background: #ffefd0; }
   .sug .cid { color: #9fb3c8; font-size: 11.5px; margin-left: 4px; }
   #stats-link { position: absolute; top: calc(12px + env(safe-area-inset-top));
     right: 10px; z-index: 4; font-size: 15px; text-decoration: none;
@@ -1044,8 +1046,15 @@ document.getElementById('q').addEventListener('input', function () {
       .then(function (d) {
         if (document.getElementById('q').value.trim() !== texto) return;
         var hits = d.results || [];
-        if (!hits.length) { esconderSugestoes(); return; }
-        sugCaixa.innerHTML = hits.map(function (h, i) {
+        var vibes = d.tags || [];
+        if (!hits.length && !vibes.length) { esconderSugestoes(); return; }
+        // vibes primeiro (combo 27/07): "cerveja artesanal" deixou de
+        // ser silêncio — a tag vira sugestão clicável
+        sugCaixa.innerHTML = vibes.map(function (t, i) {
+          return '<div class="sug vibe" data-t="' + i + '">🏷️ ' +
+            t.label + '<span class="cid">' + t.lugares +
+            ' lugares</span></div>';
+        }).join('') + hits.map(function (h, i) {
           return '<div class="sug" data-i="' + i + '">' +
             (EMOJI[h.place_type] || '📍') + ' ' + h.name +
             '<span class="cid">' + (h.city || '') + '</span></div>';
@@ -1055,6 +1064,14 @@ document.getElementById('q').addEventListener('input', function () {
           // pointerdown vence o blur do teclado no celular
           el.onpointerdown = function (ev) {
             ev.preventDefault();
+            if (el.dataset.t !== undefined) {
+              var tag = vibes[+el.dataset.t];
+              document.getElementById('q').value = tag.label;
+              esconderSugestoes();
+              alargarFiltros();
+              buscar();
+              return;
+            }
             voarPara(hits[+el.dataset.i]);
           };
         });
