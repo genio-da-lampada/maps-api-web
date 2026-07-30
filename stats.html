@@ -30,6 +30,8 @@
   .ok { color: #0a7d33; font-weight: 700; }
   .err { color: #a33; font-weight: 700; }
   .bar { background: #e94560; height: 10px; border-radius: 5px; }
+  details summary { cursor: pointer; list-style-position: outside; }
+  summary h2 { display: inline-block; margin: 10px 0 6px; }
   /* barra empilhada (ideia do Bruno 27/07): cobertura da Antena por
      cidade — parte forte = já tem Instagram, resto = ainda sem */
   .bar2 { display: flex; height: 10px; border-radius: 5px;
@@ -63,11 +65,15 @@ https://quxzjsnjgpisepslcpnc.supabase.co/functions/v1/search?lat=&lt;lat&gt;&amp
   </div>
   <h2>O Auditor (curador do curador)</h2>
   <p id="auditor" style="font-size:14px;color:#555"></p>
-  <h2>Fontes de dados (saúde do pipeline)</h2>
-  <table id="fontes"><thead><tr>
-    <th>fonte</th><th>status</th><th>último run</th>
-    <th>eventos ativos</th><th></th>
-  </tr></thead><tbody></tbody></table>
+  <details id="fontes-box">
+    <summary><h2>Fontes de dados (saúde do pipeline) <span
+      class="muted" style="font-size:13px">— toca pra expandir</span></h2>
+    </summary>
+    <table id="fontes"><thead><tr>
+      <th>fonte</th><th>status</th><th>último run</th>
+      <th>eventos ativos</th><th></th>
+    </tr></thead><tbody></tbody></table>
+  </details>
   <h2>Top buscas (7 dias)</h2>
   <table id="buscas"><thead><tr><th>busca</th><th>vezes</th></tr></thead>
     <tbody></tbody></table>
@@ -106,14 +112,23 @@ fetch(STATS, { cache: 'no-store' }).then(function (r) { return r.json(); }).then
   var b = d.base, u = d.uso;
   document.getElementById('cards').innerHTML =
     card(b.lugares_ativos, 'lugares ativos') +
-    card(b.eventos_ativos, 'eventos ativos') +
-    card(b.lugares_com_evento, 'lugares com evento') +
+    card((b.com_instagram || 0) + ' <span class="muted">· ' +
+      (b.lugares_ativos ? (100 * (b.com_instagram || 0) /
+        b.lugares_ativos).toFixed(1) : 0) + '%</span>',
+      'com instagram 📸 (a Antena caça o resto)') +
+    card(b.eventos_ativos, 'eventos ativos (de hoje em diante)') +
+    card(b.lugares_com_evento, 'lugares com rolê marcado') +
     card(b.tags, 'tags') +
     card(u.buscas_hoje + ' <span class="muted">/ ' + u.buscas_7d + '</span>',
       'buscas hoje / 7d') +
     card(u.mapa_hoje + ' <span class="muted">/ ' + u.mapa_7d + '</span>',
       'mapa aberto hoje / 7d') +
-    card(b.celulas_pendentes, 'células na fila do curador');
+    card(b.celulas_pendentes + (b.celulas_3d
+        ? ' <span class="muted">· ~' + Math.round(b.celulas_3d / 3) +
+          '/dia · ~' + Math.round(b.celulas_pendentes /
+            (b.celulas_3d / 3)) + ' dias</span>'
+        : ''),
+      'células na fila do curador (ritmo · previsão)');
 
   var au = d.auditor || {};
   var tipos = (au.pendentes_por_tipo || []).map(function (t) {
