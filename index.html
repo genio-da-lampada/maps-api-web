@@ -156,7 +156,7 @@
   .fechado { color: #a33; font-weight: 700; }
 
   /* ===== onda B: trilho de eventos (carrossel) ===== */
-  #trilho { position: fixed; left: 0; right: 0;
+  #trilho { display: none; position: fixed; left: 0; right: 0;
     bottom: calc(118px + env(safe-area-inset-bottom)); z-index: 6;
     display: flex; gap: 10px; overflow-x: auto;
     scroll-snap-type: x mandatory; padding: 6px 14px;
@@ -174,13 +174,13 @@
 
   /* ===== onda C: modo lista "hoje" ===== */
   #ondeEstou { position: fixed; right: 12px;
-    bottom: calc(252px + env(safe-area-inset-bottom)); z-index: 10;
+    bottom: calc(176px + env(safe-area-inset-bottom)); z-index: 10;
     width: 46px; height: 46px; border-radius: 999px; border: 1px solid
     rgba(255,255,255,.25); background: rgba(255,255,255,.96);
     font-size: 21px; box-shadow: 0 4px 14px rgba(10,10,30,.35);
     cursor: pointer; backdrop-filter: blur(6px); }
   #modoLista { position: fixed; right: 12px;
-    bottom: calc(200px + env(safe-area-inset-bottom)); z-index: 10;
+    bottom: calc(124px + env(safe-area-inset-bottom)); z-index: 10;
     background: #e94560; color: #fff; border: none; border-radius: 999px;
     padding: 10px 16px; font-size: 13px; font-weight: 700;
     box-shadow: 0 4px 14px rgba(10,10,30,.35); cursor: pointer; }
