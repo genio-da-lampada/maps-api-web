@@ -158,7 +158,7 @@
   /* ===== onda B: trilho de eventos (carrossel) ===== */
   #trilho { display: none; position: fixed; left: 0; right: 0;
     bottom: calc(118px + env(safe-area-inset-bottom)); z-index: 6;
-    display: flex; gap: 10px; overflow-x: auto;
+    gap: 10px; overflow-x: auto;
     scroll-snap-type: x mandatory; padding: 6px 14px;
     scrollbar-width: none; -webkit-overflow-scrolling: touch; }
   #trilho::-webkit-scrollbar { display: none; }
@@ -264,7 +264,7 @@
   </div>
 </div>
 
-<button id="ondeEstou" title="minha localização">🧭</button>
+<button id="ondeEstou" title="minha localização"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3a4a5e" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="1.6" fill="#3a4a5e" stroke="none"/><line x1="12" y1="1.5" x2="12" y2="4.5"/><line x1="12" y1="19.5" x2="12" y2="22.5"/><line x1="1.5" y1="12" x2="4.5" y2="12"/><line x1="19.5" y1="12" x2="22.5" y2="12"/></svg></button>
 <button id="modoLista">☰ hoje</button>
 <div id="lista">
   <h2>rolando na tela <span id="lista-n"></span></h2>
