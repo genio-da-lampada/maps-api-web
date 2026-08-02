@@ -125,8 +125,12 @@ fetch(STATS, { cache: 'no-store' }).then(function (r) { return r.json(); }).then
       (b.lugares_ativos ? (100 * (b.com_instagram || 0) /
         b.lugares_ativos).toFixed(1) : 0) + '%</span>',
       'com instagram 📸 (a Antena caça o resto)') +
-    card(b.eventos_ativos, 'eventos ativos (de hoje em diante)') +
-    card(b.lugares_com_evento, 'lugares com rolê marcado') +
+    card(b.eventos_ativos + ' <span class="muted">· ' +
+      (b.eventos_hoje || 0) + ' hoje</span>',
+      'eventos ativos (de hoje em diante · hoje)') +
+    card(b.lugares_com_evento + ' <span class="muted">· ' +
+      (b.lugares_com_evento_hoje || 0) + ' hoje</span>',
+      'lugares com rolê marcado (futuro · hoje)') +
     card(b.tags, 'tags') +
     card(u.buscas_hoje + ' <span class="muted">/ ' + u.buscas_7d + '</span>',
       'buscas hoje / 7d') +
