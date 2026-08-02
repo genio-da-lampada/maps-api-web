@@ -876,7 +876,13 @@ function buscar() {
   });
   var q = document.getElementById('q').value.trim();
   if (q) p.set('q', q);
-  if (modo === 'agora') p.set('open_now', 'true');
+  if (modo === 'agora') {
+    // aberto AGORA + evento de HOJE (caso Sorriso Maroto em novembro
+    // aparecendo no 'agora', 02/08): sem janela, o next_event trazia
+    // qualquer futuro
+    p.set('open_now', 'true');
+    p.set('when', 'today');
+  }
   else if (modo === 'today') p.set('when', 'today');
   else if (modo === 'amanha') p.set('when', spDate(1));
   else if (modo === 'weekend') p.set('when', 'weekend');
