@@ -58,6 +58,11 @@
   </div>
 
   <div id="painel" style="display:none">
+    <h2>⚙️ engine agora</h2>
+    <div class="card" id="engine" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      carregando…
+    </div>
+    <h2>📬 mandar sugestão</h2>
     <div class="card">
       <textarea id="texto" placeholder="cola o link ou @ do lugar e me conta o que você viu…&#10;&#10;ex: instagram.com/tal_bar — samba na varanda, cheio às 21h"></textarea>
       <button id="enviar" onclick="mandar()">mandar pro cláudio 🚀</button>
@@ -141,6 +146,41 @@ function mandar() {
   }).finally(function () { btn.disabled = false; });
 }
 
+var PAINEL = 'https://quxzjsnjgpisepslcpnc.supabase.co/functions/v1/painel';
+
+function metrica(n, l) {
+  return '<div><div style="font-size:22px;font-weight:700">' + n +
+    '</div><div class="dica" style="margin:2px 0 0">' + l + '</div></div>';
+}
+
+function carregarEngine() {
+  fetch(PAINEL, { headers: { 'x-admin-key': chaveAtual() } })
+    .then(function (r) {
+      if (r.status === 401) { semChave(); throw new Error('chave'); }
+      return r.json();
+    })
+    .then(function (d) {
+      var L = d.leituras_24h || {};
+      var rate = L.ben_rate == null ? '—' : Math.round(L.ben_rate * 100) + '%';
+      var cong = Object.keys(d.ritmo_congelador || {}).sort(function(a,b){
+        return parseInt(a) - parseInt(b);
+      }).map(function (k) {
+        return k + ': <b>' + d.ritmo_congelador[k] + '</b>';
+      }).join(' · ');
+      document.getElementById('engine').innerHTML =
+        metrica(L.total || 0, 'leituras 24h (' + (L.eventos_colhidos || 0) + ' eventos)') +
+        metrica(rate, 'ben-rate 📉 US$' + (L.custo_estimado_usd || 0) +
+          ' <s>' + (L.custo_se_tudo_hiker_usd || 0) + '</s>') +
+        metrica((d.triagem || {}).pendentes || 0, 'triagem pendente (' +
+          ((d.triagem || {}).resolvidos_24h || 0) + ' resolvidos 24h)') +
+        metrica((d.radar || {}).casas_com_endereco_social || 0,
+          'casas no radar 🛰️ (' + ((d.antena || {}).casas_com_handle || 0) + ' com IG)') +
+        '<div style="grid-column:1/3" class="dica">ritmo de leitura → ' +
+        (cong || '—') + '</div>';
+    })
+    .catch(function () {});
+}
+
 function iniciar() {
   if (!chaveAtual()) {
     document.getElementById('portao').style.display = 'block';
@@ -149,6 +189,7 @@ function iniciar() {
   document.getElementById('portao').style.display = 'none';
   document.getElementById('painel').style.display = 'block';
   carregar();
+  carregarEngine();
 }
 iniciar();
 </script>
